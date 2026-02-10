@@ -1,13 +1,42 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
+Parameters:
+  ElevenLabsApiKey:
+    Type: String
+    NoEcho: true
+    Description: ElevenLabs API key for text-to-speech
+  ElevenLabsVoiceId:
+    Type: String
+    Default: 21m00Tcm4TlvDq8ikWAM
+    Description: Default ElevenLabs voice ID
+  FfmpegLayerArn:
+    Type: String
+    Description: ARN of a Lambda layer that provides FFmpeg at /opt/bin/ffmpeg
+
 Resources:
-  HelloWorldFunction:
+  AudioBucket:
+    Type: AWS::S3::Bucket
+
+  TtsFunction:
     Type: AWS::Serverless::Function
     Properties:
       Handler: index.handler
       Runtime: nodejs24.x
       CodeUri: ./src
+      Timeout: 300
+      MemorySize: 1024
+      Layers:
+        - !Ref FfmpegLayerArn
+      Environment:
+        Variables:
+          ELEVENLABS_API_KEY: !Ref ElevenLabsApiKey
+          ELEVENLABS_VOICE_ID: !Ref ElevenLabsVoiceId
+          S3_BUCKET: !Ref AudioBucket
+          FFMPEG_PATH: /opt/bin/ffmpeg
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref AudioBucket
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -16,8 +45,13 @@ Resources:
         OutExtension:
           - .js=.mjs
         Target: "es2020"
-        EntryPoints: 
+        EntryPoints:
           - index.ts
+        External:
+          - "@aws-sdk/*"
+
 Outputs:
-  test:
-    Value: !Ref HelloWorldFunction
+  TtsFunction:
+    Value: !Ref TtsFunction
+  AudioBucket:
+    Value: !Ref AudioBucket
